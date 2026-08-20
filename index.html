@@ -180,18 +180,29 @@ document.getElementById('question').addEventListener('input', function() {
 });
 
 function getExamples(question) {
-  // 전체 카테고리에서 카테고리당 1개씩 골고루 추출 (총 6개)
-  const allExamples = [];
-  for (const cat of Object.keys(QA_DATA)) {
-    if (QA_DATA[cat].length > 0) allExamples.push(QA_DATA[cat][0]);
+  // 카테고리당 1개씩, 총 3개만 추출 (속도 최적화)
+  const cats = Object.keys(QA_DATA);
+  const selected = [];
+  for (let i = 0; i < Math.min(3, cats.length); i++) {
+    if (QA_DATA[cats[i]].length > 0) selected.push(QA_DATA[cats[i]][0]);
   }
-  return allExamples;
+  return selected;
 }
 
 function buildPrompt(question, examples) {
   let exText = examples.map((a,i) => `[참고 답변 ${i+1}]\n${a}`).join('\n\n');
   return `당신은 파이(Pi) 앱 고객센터 담당자입니다.
 고객 문의에 대해 정중하고 친절한 한국어 답변 초안을 작성해주세요.
+
+=== 파이 서비스 범위 (매우 중요) ===
+파이는 아래 서비스만 제공합니다:
+1. 자녀 대상 증여+투자 패키지 (한화투자증권 위탁계좌)
+2. 간편 증여세 셀프신고 (홈택스 연동)
+3. 미국 ETF 투자 (VOO, QQQM 등)
+
+파이가 제공하지 않는 서비스 예시: 정기적금, 연금보험, 연금저축, 예금, 적금, ISA, IRP, 펀드 직접판매 등
+→ 위 서비스 관련 문의가 들어오면 "현재 파이에서는 해당 서비스를 제공하고 있지 않습니다"라고 명확히 안내하고, 파이가 실제 제공하는 서비스로 대안을 안내하세요.
+→ 이용가이드에 없는 내용은 절대 만들어내지 마세요.
 
 === 필수 적용 규칙 ===
 
@@ -202,11 +213,11 @@ function buildPrompt(question, examples) {
 - [제목] 형식으로 섹션 구분 (필요한 경우)
 - 마크다운 굵게(**) 사용 금지
 
-[계좌 또는 투자 관련 문의인 경우 — 계좌 개설, 매수, 매도, 종목, 출금, 이체, 한화투자증권 등이 포함된 경우]
+[계좌 또는 투자 관련 문의인 경우]
 맺음말 바로 위에 아래 문구를 반드시 추가:
 "계좌 관련 세부 사항은 한화투자증권 고객센터(☎080-851-8282)로 문의하시면 보다 정확한 안내를 받으실 수 있습니다."
 
-=== 파이 서비스 공식 이용가이드 (답변 시 사실 기준으로 활용) ===
+=== 파이 서비스 공식 이용가이드 ===
 ${GUIDE_DATA}
 
 === 고객 문의 내용 ===
@@ -215,7 +226,7 @@ ${question}
 === 참고 답변 사례 (말투·형식 참고용) ===
 ${exText}
 
-위 규칙을 반드시 지키면서, 이용가이드의 정확한 정보를 바탕으로 참고 사례의 말투와 형식을 따라 답변을 작성해주세요.`;
+위 규칙과 이용가이드를 반드시 준수하여 답변을 작성하세요. 파이 서비스 범위를 벗어난 내용은 제공하지 않는다고 안내하세요.`;
 }
 
 async function generate() {
@@ -242,7 +253,7 @@ async function generate() {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
           contents: [{parts: [{text: prompt}]}],
-          generationConfig: {temperature: 0.4, maxOutputTokens: 1024}
+          generationConfig: {temperature: 0.4, maxOutputTokens: 2048}
         })
       }
     );
