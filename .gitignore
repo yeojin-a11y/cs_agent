@@ -1,0 +1,13 @@
+# 비밀 — 절대 커밋 금지
+.env
+.env.local
+.env.*.local
+.wrangler/
+
+# 빌드 중간 산출물
+data/.embed-cache.json
+data/pii-report.json
+data/items.json
+data/questions.json
+eval/results/
+node_modules/

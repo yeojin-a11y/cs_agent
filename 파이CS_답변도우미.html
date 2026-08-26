@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>파이 CS 답변 도우미</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f7;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:40px 16px}
+.container{width:100%;max-width:760px}
+header{margin-bottom:28px;text-align:center}
+header h1{font-size:22px;font-weight:700;color:#1d1d1f}
+header p{margin-top:6px;font-size:14px;color:#6e6e73}
+.card{background:#fff;border-radius:16px;padding:28px;box-shadow:0 2px 12px rgba(0,0,0,.07);margin-bottom:20px}
+label{display:block;font-size:13px;font-weight:600;color:#1d1d1f;margin-bottom:8px}
+select,textarea,input{width:100%;font-family:inherit;font-size:15px;border:1.5px solid #d2d2d7;border-radius:10px;padding:12px 14px;color:#1d1d1f;background:#fafafa;outline:none;transition:border-color .2s}
+select:focus,textarea:focus,input:focus{border-color:#0071e3;background:#fff}
+textarea{resize:vertical;min-height:130px;line-height:1.6}
+.field+.field{margin-top:20px}
+.char-count{text-align:right;font-size:12px;color:#aeaeb2;margin-top:5px}
+.btn-primary{width:100%;padding:15px;background:#0071e3;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;transition:background .2s,opacity .2s;margin-top:8px}
+.btn-primary:hover{background:#0077ed}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.result-card{display:none}
+.result-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.result-header span{font-size:13px;font-weight:600;color:#1d1d1f}
+.badge{font-size:12px;padding:3px 10px;background:#e8f4fd;color:#0071e3;border-radius:20px;font-weight:500}
+#answerBox{background:#f5f5f7;border-radius:10px;padding:18px;font-size:14px;line-height:1.75;color:#1d1d1f;white-space:pre-wrap;word-break:break-word;min-height:80px}
+.actions{display:flex;gap:10px;margin-top:14px}
+.actions button{flex:1;padding:11px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;border:1.5px solid #d2d2d7;background:#fff;color:#1d1d1f;transition:background .15s}
+.actions button:hover{background:#f5f5f7}
+.actions button.dark{background:#1d1d1f;color:#fff;border-color:#1d1d1f}
+.actions button.dark:hover{background:#333}
+.spinner{display:inline-block;width:17px;height:17px;border:2.5px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:7px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(80px);background:#1d1d1f;color:#fff;padding:12px 24px;border-radius:24px;font-size:14px;font-weight:500;opacity:0;transition:transform .3s,opacity .3s;pointer-events:none}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.error-msg{color:#ff3b30;font-size:13px;margin-top:10px;display:none}
+/* API Key 모달 */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px}
+.modal{background:#fff;border-radius:20px;padding:32px;max-width:440px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.modal h2{font-size:18px;font-weight:700;margin-bottom:8px;color:#1d1d1f}
+.modal p{font-size:13px;color:#6e6e73;margin-bottom:20px;line-height:1.6}
+.modal a{color:#0071e3;text-decoration:none}
+.modal a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+
+<!-- API Key 입력 모달 -->
+<div class="modal-overlay" id="keyModal">
+  <div class="modal">
+    <h2>🔑 Gemini API 키 입력</h2>
+    <p>파이 CS 답변 도우미를 사용하려면 Gemini API 키가 필요합니다.<br>
+    키는 이 탭에서만 유지되며 서버에 저장되지 않습니다.<br><br>
+    키 발급: <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a></p>
+    <div class="field">
+      <label for="apiKeyInput">API 키</label>
+      <input type="password" id="apiKeyInput" placeholder="AIza...">
+    </div>
+    <button class="btn-primary" style="margin-top:16px" onclick="saveKey()">시작하기</button>
+    <div class="error-msg" id="keyError">API 키를 입력해주세요.</div>
+  </div>
+</div>
+
+<div class="container">
+  <header>
+    <h1>파이 CS 답변 도우미</h1>
+    <p>고객 문의 내용을 입력하면 AI가 답변 초안을 생성합니다</p>
+  </header>
+
+  <div class="card">
+    <div class="field">
+      <label for="question">고객 문의 내용</label>
+      <textarea id="question" placeholder="고객이 문의한 내용을 입력하세요..."></textarea>
+      <div class="char-count"><span id="charCount">0</span>자</div>
+    </div>
+    <button class="btn-primary" id="generateBtn" onclick="generate()">답변 초안 생성</button>
+    <div class="error-msg" id="errorMsg"></div>
+  </div>
+
+  <div class="card result-card" id="resultCard">
+    <div class="result-header">
+      <span>생성된 답변 초안</span>
+      <span class="badge" id="categoryBadge" style="display:none"></span>
+    </div>
+    <div id="answerBox"></div>
+    <div class="actions">
+      <button onclick="copyAnswer()">📋 복사</button>
+      <button class="dark" onclick="generate()">🔄 다시 생성</button>
+    </div>
+  </div>
+
+  <p style="text-align:center;font-size:12px;color:#aeaeb2;margin-top:4px">
+    <a href="#" onclick="resetKey()" style="color:#aeaeb2">API 키 변경</a>
+  </p>
+</div>
+
+<div class="toast" id="toast">클립보드에 복사됐어요</div>
+
+<script>
+const QA_DATA = {"계좌 · 투자": ["안녕하세요, 파이 고객센터입니다.\n\n추가로 문의 주셔서 감사합니다. \n문의주신 내용에 대해 아래와 같이 안내드리겠습니다.\n\n[자녀 계좌 소수점 거래 조회 안내] \n한화투자증권 앱(MTS)에서 자녀 계좌의 소수점 거래 내역이 조회되지 않으시는 경우, 현재 로그인되어 있는 계정이 '부모님 계정'이 아닌 '자녀 명의 계정'인지 먼저 확인 부탁드립니다. 자녀 계좌의 거래 내역은 자녀 명의 계정으로 로그인하신 경우에만 조회가 가능합니다.\n\n[로그인 계정 확인 방법] \n로그인 계정은 '한화투자증권 앱 홈 화면 좌측 상단 「○○○님」 표시 영역'에서 확인하실 수 있습니다. 해당 영역에 자녀의 이름이 표시되어 있어야 자녀 명의 계정으로 정상 로그인된 상태입니다.\n\n[부모님이 미성년 자녀 계정으로 로그인하는 방법] \n부모님께서 미성년 자녀의 계정으로 로그인하시려면, 자녀 명의로 타행에서 발급된 공동인증서를 이용하시는 방법이 있는 것으로 확인됩니다. 다만, 자녀 계좌 로그인 과정에서 발생하는 세부적인 문의 사항은 한화투자증권 고객센터(<tel:080-851-8282|080-851-8282>)로 연락해주시면 보다 정확한 안내를 받으실 수 있습니다.\n\n이 외 이용 중 불편하신 점이나 궁금하신 사항이 있으시다면 언제든 편하게 문의 남겨주세요.\n\n혹시 저희가 고객님의 상황을 정확히 이해하지 못한 부분이 있거나, 위 안내 외에 추가로 궁금하신 사항이 있으시다면 언제든 다시 말씀해주세요. 상세히 확인하여 도움드리겠습니다.\n\n어려움이 지속된다면 언제든 다시 문의해주세요. \n감사합니다.\n\n파이고객센터 드림", "안녕하세요. 파이 고객센터입니다.\n문의하신 네 가지 내용에 답변해 드립니다.\n\n1. 목돈(2,000만 원) 분산 투자 방법\n- 아쉽지만 현재 파이의 증여+투자 패키지는 한 번에 여러 종목을 나누어 담는 분할 매수 기능을 지원하지 않습니다. \n- 원하시는 대로 S&P500 60%, 기타 ETF 각 10%씩 분산 투자를 원하신다면, 종목별로 금액을 나누어 개별 패키지로 여러 번 신청해 주셔야 합니다. (예: 1,200만 원짜리 S&P500 패키지 1건, 200만 원짜리 다른 ETF 패키지 4건 등)\n\n2. 자녀 계좌의 종류\n현재 파이를 통해 개설되는 자녀 계좌는 일반 위탁매매 계좌입니다. \n\n3. 여러 패키지를 순차적으로 진행하는 방법\n문의하신 대로 앞선 패키지 신청이 종료되어야 그다음 패키지 신청이 가능합니다. 단순히 증여금 이체 완료가 아니라 '증여세 신고'까지 완벽히 끝나야 다음 패키지를 신청할 수 있습니다. 시스템이 향후 증여세 신고할 금액까지 꼬임 없이 안전하게 공제한도를 계산하기 위한 절차이니 양해를 부탁드립니다.\n\n따라서 목돈 분산 투자나 [목돈 반 + 월적립 반]을 진행하실 때는 아래의 순서로 추천해 드립니다.\n(1) 첫 번째 패키지(예: 여유자금을 한번에 1,000만 원)를 신청합니다.\n(2) 증여일(이체일)을 가장 빠른 날짜(신청 다음 영업일)로 지정해 자녀 계좌로 돈을 자동이체 합니다.\n(3) 입금 즉시 증여세 신고를 완료합니다.\n(4) 신고 완료 확인 후, 곧바로 두 번째 패키지(예: 월 적립)를 이어서 신청합니다.\n\n4. 증여 시점 확정 및 세무 완료 확인 방법\n- 증여 완료 시점: 자녀 계좌에 증여금이 입금된 날짜를 기준으로 증여일이 확정됩니다.\n- 확인 및 신고 절차: 자녀 계좌에 돈이 입금되면 파이에서 증여세 간편신고를 위해 알림톡을 보내드립니다. 알림톡을 받으신 후 앱에서 클릭 몇 번으로 간편신고를 완료하시면 됩니다.\n- 최종 확인 방법: 신고가 잘 되었는지는 파이 앱 내 [홈 화면 > '증여세 신고 금액' 영역 선택 > '신고완료' 탭]에서 언제든지 정상 접수된 내용을 확인하실 수 있습니다.\n\n패키지를 한 건씩 진행해야 해서 다소 번거롭게 느껴지실 수 있지만, 자녀분의 증여세 신고를 오차없이 진행하기 위한 안전장치이오니 믿고 이용해 주시면 감사하겠습니다.\n진행하시면서 막히는 부분이 있거나 추가로 궁금한 점이 있으시면 언제든 편하게 문의해 주세요.\n\n감사합니다.\n\n파이 고객센터 드림", "안녕하세요, 파이 고객센터입니다. \n\n파이X한화투자증권 간편증여 계좌는 주식 거래가 가능한 위탁계좌입니다. \n현재는 위탁계좌에 한해서만 서비스가 제공되고 있으며, 추후 자녀의 자산을 폭넓게 관리할 수 있도록 연금저축계좌 등 다양한 서비스의 도입을 긍정적으로 검토하고 있습니다. \n\n이용에 관심 가져주셔서 감사드리며, 궁금하신 점이 있다면 언제든 편히 문의해 주세요.\n감사합니다. \n\n파이 고객센터 드림", "안녕하세요, 파이 고객센터입니다.\n\n먼저 서비스 이용중에 불편을 겪게 해드려 진심으로 죄송합니다. \n\n파이는 고객님의 소중한 정보를 안전하게 보호하기 위해 대법원 시스템 연동을 통해 가족관계 정보를 검증하고 있습니다. 다만 이 과정에서 가족관계 정보에 변동있는 경우 온라인 검증 제약으로 인해 비대면 계좌 개설이 제한되고 있습니다. 예외 상황에서도 원활하게 계좌를 개설하실 수 있도록 지원 프로세스를 최우선으로 검토 중에 있습니다.\n빠른 시일 내 시스템 개선을 통해 불편 없이 이용하실 수 있도록 하겠습니다.\n\n소중한 시간 내어 문의해 주셨으나 바로 도움 드리지 못한 점 양해 부탁드립니다.\n감사합니다.\n\n파이 고객센터 드림", "안녕하세요,  파이 고객센터입니다.\n\n파이 이용 관련 문의주신 사항에 대해 답변드립니다.\n\n Q1. 증여+투자금은 아이가 성년이 되면 찾는 건가요?\n꼭 성년이 되어야만 찾을 수 있는 것은 아닙니다. 투자금은 원하실 때 언제든지 찾으실 수 있습니다. 아울러 증여는 자녀가 성년이 된 이후에도 가능하기 때문에 목표하신 자녀 자산 관리 계획에 맞춰 운용해주시면 됩니다.\n\n Q2. 투자금을 찾으려면 어떻게 해야 하나요?\n투자금을 회수하고 싶으신 경우 먼저 앱 내에서 보유하신 주식을 매도해 주시면 됩니다. 주식 매도가 완료된 이후, 자녀분의 계좌에서 원하시는 계좌로 이체하여 출금하실 수 있습니다.\n\n출금 안내: 현재 출금 서비스는 계좌 운용사인 한화투자증권 앱을 통해 진행하실 수 있습니다. 파이 앱 내에서 한 번에 출금까지 도와드리지 못해 죄송하며, 번거로우시더라도 한화투자증권 앱을 이용해 주셔야 하는 점 양해 부탁드립니다.\n\n\n안내해 드린 내용이 도움이 되셨기를 바라며, 추가로 궁금하신 사항이 있다면 언제든지 편하게 문의해 주세요.\n감사합니다.\n\n파이 고객센터 드림"], "기타": ["안녕하세요, 파이 고객센터입니다. \n\n현재 파이 앱은 '세금 없는 증여'를 돕기 위해 공제한도 이내로 증여+투자 패키지를 신청하신 건에 대해서만 간편 신고를 지원하고 있습니다.공제한도를 초과하여 추가 증여+투자 패키지를 이용할 수는 있지만 증여세 신고는 홈택스를 통해 직접 진행해주셔야 하며 증여세가 발생하게 되는 점 안내드립니다. \n향후에는 공제한도를 초과하는 증여는 물론, 그에 따른 증여세 납부까지 앱 내에서 한 번에 해결하실 수 있도록 기능을 확장할 예정입니다.\n\n이용해 주셔서 감사드리며, \n궁금한 점이 있다면 언제든 편하게 문의해 주세요. \n\n감사합니다. \n\n파이 고객센터 드림", "안녕하세요, 파이 고객센터입니다.\n\n먼저 서비스 이용중에 불편을 겪게 해드려 진심으로 죄송합니다. \n\n파이는 고객님의 소중한 정보를 안전하게 보호하기 위해 대법원 시스템 연동을 통해 가족관계 정보를 검증하고 있습니다. 다만 이 과정에서 가족관계 정보에 변동있는 경우 온라인 검증 제약으로 인해 비대면 계좌 개설이 제한되고 있습니다. 예외 상황에서도 원활하게 계좌를 개설하실 수 있도록 지원 프로세스를 최우선으로 검토 중에 있습니다.\n빠른 시일 내 시스템 개선을 통해 불편 없이 이용하실 수 있도록 하겠습니다.\n\n소중한 시간 내어 문의해 주셨으나 바로 도움 드리지 못한 점 양해 부탁드립니다.\n감사합니다.\n\n파이 고객센터 드림", "안녕하세요. 파이 고객센터입니다 .\n\n먼저 회원 탈퇴 과정에서 명확한 완료 안내가 부족하여 혼란을 드린 점 죄송합니다.\n\n파이 앱 [탈퇴하기] 메뉴에서 생체인증(또는 간편인증)을 완료하신 후, 앱의 첫 화면인 '본인확인 페이지'로 이동되었다면 정상적으로 탈퇴 처리가 완료된 상태입니다.\n\n탈퇴가 완료되었다는 안내 문구 없이 바로 초기 화면으로 넘어가다 보니, 탈퇴가 제대로 안 된 것은 아닌지 우려하실 수 있는 상황입니다. 이러한 불편함을 깊이 인지하고 있으며, 고객님들께서 직관적으로 탈퇴 완료를 인지하실 수 있도록 현재 화면 개선 작업을 진행하고 있습니다.\n\n생체인증 단계까지만 마무리하셨다면 소중한 정보는 안전하게 파기되고 정상적으로 탈퇴가 완료된 것이니 안심하고 해당단계까지 진행 부탁드립니다. \n\n파이와 함께해 주셔서 진심으로 감사드립니다.\n감사합니다.\n\n파이 고객센터 드림", "안녕하세요, 파이 고객센터입니다.\n\n파이 앱 '탈퇴하기' 메뉴에서 생체인증(또는 간편인증)을 완료하신 후, 별도의 안내 문구 없이 앱의 첫 화면(본인확인 페이지)으로 이동했다면 정상 탈퇴가 맞습니다.\n\n탈퇴 완료되었다는 안내가 보이지 않아 제대로 처리되었는지 우려하셨을 텐데, 이 부분은 고객님들께서 직관적으로 인지하실 수 있도록 화면 개선 작업을 진행 중입니다. 이용에 혼선을 드려 죄송합니다.\n\n[참고] 재가입 후 계좌 정보가 다시 보이는 이유\n탈퇴 후 다시 본인인증을 진행하셨을 때 기존 계좌 정보가 보이는 이유는 파이와 연동된 '증권 계좌'가 아직 유지되고 있기 때문입니다. 파이 앱은 본인인증을 하면 투자 제휴사인 한화투자증권의 계좌를 자동으로 연동해서 보여주도록 설계되어 있어 탈퇴가 안 된 것으로 오해하실 수 있습니다.\n\n계좌 정보까지 삭제하길 원하신다면 한화투자증권 앱을 통해 계좌를 직접 폐쇄해 주셔야 합니다. 금융 보안상 저희가 대신 처리해 드릴 수 없는 점 너른 양해 부탁드립니다.\n*계좌 폐쇄 경로: 한화투자증권 앱 설치 및 실행 ➔ 고객서비스 ➔ 계좌정보관리 ➔ 계좌폐쇄\n\n추가로 궁금한 점이 있으시면 언제든 문의해 주세요.\n감사합니다.\n\n파이 고객센터 드림", "안녕하세요, 파이 고객센터입니다.\n\n자녀 계좌는 자녀 명의로 개설되어 있어 부모님 휴대폰 번호를 통한 [휴대폰 본인인증] 방식은 이용이 불가능합니다. 인증 단계에서 휴대폰 본인인증이 아닌 [ARS 인증]을 선택하여 진행해 주세요.\n\n혹시 이미 [ARS 인증]을 선택하여 정상적으로 시도하셨음에도 등록에 실패하신 상황이라면, 번거로우시겠지만 저희 고객센터로 다시 한번 문의를 남겨주세요. 상세히 확인하여 도움을 드리겠습니다.\n\n감사합니다.\n\n파이 고객센터 드림"], "증여세 신고 · 조회": ["안녕하세요, 파이 고객센터입니다. \n\n고객님의 증여세 신고서 제출은 정상적으로 완료되었으나, 신고 내역과 관련하여 몇 가지 확인 및 설명해 드릴 부분이 있습니다. 이에 더욱 정확하고 상세한 가이드를 제공해 드리기 위해 담당자가 직접 전화로 안내해 드리고자 합니다.\n\n[담당자 유선 안내 동의 요청] \n요청 사항: 내일(22일) 오전 중 통화가 편하신 시간을 신규 1:1 문의로 남겨주시면, 해당 시간에 맞춰 담당자가 개인 연락처로 고객님께 연락을 드리겠습니다. \n\n더욱 정확하고 상세한 안내를 드리기 위함이니 번거로우시더라도 확인 후 답변 부탁드립니다.\n감사합니다.\n\n파이 고객센터 드림", "안녕하세요, 파이 고객센터입니다.\n\n홈택스에 등록된 납세 정보를 바탕으로 시스템상에서 부모-자녀 간의 법정대리인 관계가 자동으로 확인되지 않아 발생하는 현상으로 보입니다.\n\n문제를 해결하기 위해 아래 방법을 순서대로 시도해 보시는 것을 추천해 드립니다.\n\n1단계: 법정대리인을 '배우자(아이 아빠)'로 변경해 보기\n자녀의 홈택스 회원가입 화면에서 법정대리인을 아빠 정보로 변경하여 다시 가입을 시도해 보세요. 아빠 정보로 인증하여 아이 계정(ID/PW)만 정상적으로 만들어지면 파이 앱과 연결하실 수 있습니다.\n\n2단계: 법정대리인을 변경해도 같은 에러가 반복되는 경우\n국세청 전산망 자체의 정보 매칭 오류일 가능성이 높습니다. 이럴 때는 국세청 홈택스 상담센터(국번 없이 ☎126번)를 통해 직접 홈택스 이용 안내 상담을 받아보시는 것이 가장 확실하고 정확한 해결 방법입니다.\n\n번거로우시더라도 위의 방법으로 한 번 더 시도해 주시기를 부탁드립니다. \n감사합니다.\n\n파이 고객센터 드림", "안녕하세요, 파이 고객센터입니다.\n\n문의주신 내용에 대해 보다 상세한 안내를 드리고자 담당자가 고객님의 연락처로 직접 연락드리고자 합니다.\n유선 연락 동의 여부를 신규 1:1 문의로 남겨주시면 확인 후 안내드리겠습니다.\n\n감사하겠습니다.\n\n파이 고객센터 드림", "안녕하세요, 파이 고객센터입니다.\n\n유선으로 연락드려 동의해주신 내용에 따라 홈택스에 기신고된 패키지 신청 이력을 삭제해드렸습니다. 6월 중순경 증빙서류 첨부 기능 개발이 완료되면 개별 안내 드리도록 하겠습니다.\n\n추가로 궁금하신점 있으시면 언제든 문의주세요.\n소중한 시간 내어주시고, 파이를 선택해 주셔서 다시 한번 감사드립니다.\n\n파이 고객센터 드림", "안녕하세요, 파이 고객센터입니다.\n\n고객님 말씀대로 '연결하기' 버튼을 누르시고 진행해 주시면 됩니다. 홈택스를 연결하셔야 하는 이유와 올바른 방법을 안내해 드립니다.\n\n1. 홈택스를 연결해야 하는 이유\n자녀의 홈택스 계정을 파이 앱에 연결해 두시면, 과거에 국세청에 신고했던 증여 내역을 편리하게 확인할 수 있습니다. 또한, 앞으로 파이 앱을 통해 신청하시는 '증여+투자 패키지'에 대해서도 클릭 몇 번으로 증여세를 간편하게 신고하실 수 있기 때문에 필수적으로 연결해 두시면 좋습니다.\n\n2. 주의 사항\n홈택스 계정은 부모님의 계정이 아니라, 반드시 '증여를 받는 자녀 본인 명의'로 가입된 계정이어야 합니다. 부모님의 홈택스 아이디를 입력하실 경우, 자녀의 정보와 일치하지 않아 로그인 및 연결 자체가 진행되지 않으니 꼭 자녀의 계정으로 로그인해 주세요.\n\n자녀분의 홈택스 가입이나 연결 과정에서 어려움이 있으시거나 오류 메시지가 뜬다면 언제든 편하게 문의해 주세요.\n감사합니다.\n\n파이 고객센터 드림"], "앱 이용": ["안녕하세요, 파이 고객센터입니다. \n\n유선으로 연락드려 동의해주신 내용에 따라 홈택스에 기신고된 패키지 신청 이력을 삭제해드렸습니다. 6월 중순경 증빙서류 첨부 기능 개발이 완료되면 개별 안내 드리도록 하겠습니다.\n\n추가로 궁금하신점 있으시면 언제든 문의주세요.\n소중한 시간 내어주시고, 파이를 선택해 주셔서 다시 한번 감사드립니다.\n\n파이 고객센터 드림", "안녕하세요, 파이 고객센터입니다.\n홈택스 연결이 지속적으로 실패하여 서비스 이용에 불편을 드려 죄송합니다.\n\n문의하신 연결 실패 현상은 주로 홈택스 비밀번호가 초기화된 이후, 새로운 비밀번호로 재설정되지 않았을 경우에 발생할 수 있습니다.\n\n번거로우시겠지만, 아래의 절차에 따라 진행해 보시길 권장드립니다.\n1. 국세청 홈택스 웹사이트 또는 손택스 앱에 직접 접속\n2. 로그인 화면에서 비밀번호 재설정(변경) 진행\n3. 파이 앱으로 돌아와 변경된 비밀번호로 홈택스 연결 재시도\n\n안내해 드린 방법으로 비밀번호를 새롭게 변경하신 후에도 동일한 오류가 계속해서 발생한다면, 언제든지 1:1 문의를 통해 다시 남겨주시기 바랍니다.\n감사합니다.\n\n파이 고객센터 드림", "안녕하세요, 파이 고객센터입니다.\n문의내용에 대해 아래와 같이 안내드리겠습니다.\n\n[파이 앱에서 매수가 제한되는 이유]\n- 파이 앱에서 매수는 기본적으로 '증여+투자 패키지'를 통한 증여 투자로 이루어집니다.\n- 이때 패키지에 설정된 '증여일'과 같은 날짜에 동일한 종목을 매수하는 것은 제한되고 있습니다.\n- 고객님의 패키지는 매월 8일로 증여가 설정되어 있어, 8일에 같은 종목을 매수하시려 한 경우 이 제한에 해당되었을 수 있습니다.\n\n[용돈·돌잔치 자금으로 투자 시 유의사항]\n- 자녀가 받은 용돈 등도 소비되지 않고 투자 자산 매수에 사용되는 경우, 원칙적으로 추가 증여세 신고 대상이 될 수 있습니다.\n- 고객님께서는 현재 증여재산 공제한도를 모두 사용하신 상태로 확인되어, 추가 증여 시 세금이 발생할 수 있는 만큼 신중한 검토를 권해드립니다.\n- 또한 파이 앱의 간편신고는 공제한도를 초과한 증여에 대해서는 지원되지 않는 점도 참고 부탁드립니다.\n\n[한화투자증권 앱에서 자녀 계좌 로그인 방법]\n- '한투증권'은 한화투자증권 모바일앱(MTS)을 말씀하시는 것으로 이해됩니다.\n- 부모님 ID로는 부모 계좌만 조회되며, 자녀 계좌는 부모님 ID와 별개로 '자녀 ID'를 따로 생성하셔야 로그인하실 수 있습니다.\n- 자녀 ID 생성: 한화투자증권 MTS 앱 > 로그인 화면 [다른 로그인 방법] > [아이디] > [ID 등록] > 자녀 정보(이름/계좌번호/계좌비밀번호) 입력 후 ID 생성·로그인\n- 로그인이나 계좌 관련하여 더 자세한 확인이 필요하시면, 계좌를 관리하는 한화투자증권 고객센터(080-851-8282)로 문의하시면 도움받으실 수 있습니다.\n\n고객님의 상황을 정확히 이해한 것이 맞는지 확인 부탁드리며, 위 내용 외에 궁금하신 점이 있으시면 언제든 편하게 말씀해 주세요.\n감사합니다.\n\n파이 고객센터 드림", "안녕하세요, 파이 고객센터입니다.\n\n먼저 서비스 이용 중에 불편을 겪게 해드려 진심으로 죄송합니다.\n\n파이 앱을 통해 진행되는 비대면 계좌 개설은 제휴 증권사인 한화투자증권을 통해 진행되며, 고객님의 소중한 정보 보호를 위해 대법원 시스템 연동을 통한 가족관계 정보 검증 절차를 거치게 됩니다.\n다만, 이 과정에서 가족관계 정보에 변동이 있으신 경우 온라인 검증의 제약으로 인해 비대면 계좌 개설이 제한될 수 있습니다.\n\n파이 역시 이러한 상황에서도 고객분들께서 원활하게 계좌를 개설하실 수 있도록, 제휴사와 긴밀히 협력하여 시스템 개선을 최우선으로 검토 중에 있습니다. 빠른 시일 내에 더욱 편리하게 이용하실 수 있도록 최선을 다하겠습니다.\n\n소중한 시간 내어 문의해 주셨으나 바로 도움을 드리지 못한 점 너른 양해를 부탁드립니다.\n\n감사합니다.\n\n파이 고객센터 드림", "안녕하세요, 파이 고객센터입니다.\n\n아이 계좌 개설 중 가족관계 검증 단계에서 불편을 드려 죄송합니다. 계좌 운용사인 제휴사 한화투자증권을 통해 상세한 확인이 필요하여 답변이 늦어지게 된 점 양해 부탁드립니다.\n현재 한화투자증권은 비대면 계좌 개설 시 대법원 시스템과 연동하여 가족관계증명서를 검증하고 있습니다. 이 과정에서 가족 정보에 변동 내역이 있으신 경우 시스템을 통한 자동 검증이 어려워, 부득이하게 한화투자증권 오프라인 지점 방문을 통해서 계좌개설 처리를 도와드리고 있습니다. 다만 파이X한화투자증권 간편증여 계좌의 경우 제휴 계좌 특성상 현재 지점을 통한 신청 프로세스가 마련되어 있지 않아, 고객님들께서 어려움 없이 계좌를 개설하실 수 있도록 다각도로 대안을 검토하고 있는 것으로 확인하였습니다.\n즉시 해결해 드리지 못한 점 거듭 사과드리며, 추후 해당 서비스가 개선되는 경우 앱을 통해 빠르게 안내해 드릴 수 있도록 하겠습니다.\n\n파이 고객센터 드림"], "회원정보": ["안녕하세요, 파이 고객센터입니다.\n\n파이 앱 회원 탈퇴 방법을 안내드립니다. \n\n[앱 회원 탈퇴]\n1. 앱 하단의 [MY] 탭 선택\n2. [탈퇴하기] 메뉴 선택\n3. [탈퇴하기] 버튼 터치 → 간편인증(비밀번호 또는 생체인증) 진행\n\n간편인증 완료 후 앱 초기 화면(본인인증 화면)으로 이동하면 정상적으로 탈퇴가 완료된 것입니다. 고객님께서 가입 시 입력하셨던 회원 정보는 탈퇴 즉시 안전하게 삭제 처리됩니다.\n단, 파이를 통해 계좌를 개설하신 경우에는 한화투자증권 앱을 통해 별도로 계좌를 폐쇄해 주셔야 합니다.\n계좌 서비스는 제휴사인 한화투자증권을 통해 제공해 드리고 있어 번거로우시겠지만 아래 경로를 통해 직접 처리해주셔야 하는 점 너른 양해 부탁드립니다. \n\n[계좌폐쇄 안내]\n경로: 한화투자증권 앱 설치 및 실행 &gt; 고객서비스 &gt; 계좌정보관리 &gt; 계좌폐쇄\n\n\n이용해주셔서 감사드리며, 다시 뵐 수 있기를 바랍니다. \n감사합니다.\n\n파이 고객센터 드림", "안녕하세요. 파이 고객센터입니다. \n\n탈퇴화면에서 인증(생체인증 또는 간편비밀번호 입력)까지 완료되면 정상적으로 탈퇴가 진행된 것입니다. 이후 PLUS 시작 화면 -&gt; 본인인증(휴대폰 번호 입력 단계) 화면이 나오면 탈퇴 완료된 것이오니 본인인증 화면이 나오더라도 진행하지 않으시면 됩니다. \n\n위 과정에서 추가 문의나 어려움이 있으시다면 고객님의 동의 하에 유선 연락을 통해 도움드리도록 하겠습니다. \n\n[담당자 유선 안내 동의 요청] \n요청 사항: 통화가 편하신 시간을 신규 1:1 문의로 남겨주시면, 해당 시간에 맞춰 담당자가 개인 연락처로 고객님께 연락을 드리겠습니다. \n\n더욱 정확하고 상세한 안내를 드리기 위함이니 번거로우시더라도 확인 후 답변 부탁드립니다.\n감사합니다.\n\n파이 고객센터 드림", "안녕하세요, 파이 고객센터입니다.\n\n자녀 계좌의 영문명 변경은 한화투자증권 MTS 앱을 통해 진행해 주셔야 합니다. 파이 앱 내에서 한 번에 변경 처리를 도와드리지 못해 죄송하게 생각하며, 계좌 운용사인 한화투자증권을 통해 직접 진행해 주셔야 하는 점 너른 양해 부탁드립니다.\n\n① 앱 설치 및 자녀 ID 생성\n- 앱 마켓에서 '한화투자증권 MTS' 앱을 설치합니다.\n- 로그인 화면에서 [다른 로그인 방법] → [아이디]를 선택합니다.\n- 하단의 [ID 등록]을 누른 후, 자녀 정보(이름/계좌번호/계좌비밀번호)를 입력하여 ID를 생성하고 로그인해 주세요.\n\n② 고객서비스 > 고객정보관리 > 고객정보 변경 메뉴 이동\n고객정보 변경 화면에서 접속하여 우측 상단 [수정]을 선택해주세요.\n\n③ 영문명\n이름을 수정한 후 [변경]을 선택하면 처리가 완료됩니다.\n\n안내해 드린 과정을 따라 진행해 보시고, 혹시라도 막히는 부분이나 어려운 점이 생기시면 언제든 편하게 다시 문의해 주세요.\n감사합니다.\n\n파이 고객센터 드림", "안녕하세요, 파이 고객센터입니다.\n파이 앱 회원 탈퇴 방법을 안내드립니다.\n\n[앱 회원 탈퇴]\n1.앱 하단의 [MY] 탭 선택\n2.[탈퇴하기] 메뉴 선택\n3.[탈퇴하기] 버튼 터치 → 간편인증(비밀번호 또는 생체인증) 진행 -&gt; 완료\n\n간편인증 완료 후 앱 초기 화면(본인인증 화면)으로 이동하면 정상적으로 탈퇴가 완료된 것입니다. 해당 단계에서 더 이상 휴대폰 인증을 진행하지 않으셔도 되며, 탈퇴 즉시 고객님의 소중한 회원 정보는 안전하게 삭제 처리됩니다. 단, 파이를 통해 계좌를 개설하신 경우에는 한화투자증권을 통해 별도로 계좌를 폐쇄해 주셔야 합니다. 계좌 서비스는 제휴사인 한화투자증권을 통해 제공해 드리고 있어 번거로우시겠지만 아래 경로를 통해 직접 처리해주셔야 하는 점 너른 양해 부탁드립니다.\n\n[계좌폐쇄 안내] 아래 두 가지 경로 중 편하신 방법으로 진행해주세요.\n- 한화투자증권 앱(APP): 한화투자증권 앱 설치 및 실행 &gt; 고객서비스 &gt; 계좌정보관리 &gt; 계좌폐쇄\n- 한화투자증권 유선: 한화투자증권 고객센터(080-851-8282) 연락하여 폐쇄 요청 (참고. 원활한 진행을 위해 사전에 폐쇄 요청하실 계좌번호를 알고 계셔야 합니다.)\n\n이용해주셔서 감사드리며, 다시 뵐 수 있기를 바랍니다. 감사합니다.\n파이 고객센터 드림", "안녕하세요, 파이 고객센터입니다.\n자녀분의 소중한 자산 정보가 올바르게 표시되지 않아 이용에 불편을 드린 점 진심으로 사과드립니다.\n\n고객님께서 문의해 주신 시점에 해당 정보를 제공하는 한화투자증권의 시스템 문제로 자산 정보 노출에 오류가 있었던 것으로 파악되었습니다. 현재는 정상적으로 자산 정보 조회가 가능한 상태임을 확인하였습니다.\n\n소중한 자산을 믿고 맡겨주시는 만큼, 향후 동일한 문제가 재발하지 않도록 시스템 모니터링 및 관리에 주의를 기울이겠습니다.\n이용에 불편을 드려 다시 한번 사과드립니다.\n감사합니다.\n\n파이 고객센터 드림"], "증여+투자 패키지": ["안녕하세요, 파이 고객센터입니다.\n문의 주셔서 감사합니다. 문의주신 내용에 대해 아래와 같이 안내드리겠습니다.\n\n[추가 신청 가능 여부 안내] \n현재 월 10만원 적립식 패키지를 이용 중이신 경우에도, 여유 자금이 생기시면 추가로 패키지를 신청하실 수 있습니다. 일시금과 적립식 모두 추가 신청이 가능하오니 편하신 방식으로 진행해주세요.\n\n[참고: 증여재산 공제한도 안내] \n부모-자녀 간 증여 시에는 10년 주기로 증여재산 공제한도가 적용됩니다. 미성년 자녀의 경우 공제한도는 2,000만원이며, 해당 한도 내에서 자유롭게 추가 신청하실 수 있습니다.\n\n[남은 공제한도 확인 방법] \n현재 자녀의 남은 공제한도는 파이 홈 화면에서 자녀의 홈택스 계정을 연동하시면 확인 가능합니다. 연동 경로는 아래와 같습니다.\n- 홈택스 로그인 이력이 있는 경우: 홈 > 「증여세 신고금액」 > 우측 [리프레쉬] 아이콘 클릭 > 「홈택스 계정 연결」에서 [홈택스 로그인하기] 클릭 후 홈택스 아이디/PW 로그인\n- 홈택스 로그인 이력이 없는 경우: 홈 > 「증여세 신고금액」 > 화면 내 「홈택스 연결하기」 버튼 선택\n\n혹시 저희가 고객님의 상황을 정확히 이해하지 못한 부분이 있거나, 위 안내 외에 추가로 궁금하신 사항이 있으시다면 언제든 다시 말씀해주세요. 상세히 확인하여 도움드리겠습니다.\n어려움이 지속된다면 언제든 다시 문의해주세요. 감사합니다.\n\n파이고객센터 드림", "안녕하세요, 파이 고객센터입니다.\n\n파이에서는 자녀 계좌로 증여금이 입금되면 당일 종목 주문이 접수되며, 다음 날 체결이 완료되어 자산 현황에 반영됩니다.\n\n고객님께서 26일에 증여금 출금을 설정하셨다면, 정상적으로 체결이 완료된 종목은 27일(오늘) 자녀의 자산 현황 메뉴에서 확인하실 수 있습니다.파이 앱에서 아이의 든든한 증여+투자가 잘 이루어졌는지 확인해 보세요\n\n이용하시면서 더 궁금한 점이 있으시면 언제든 편하게 문의해 주세요.\n감사합니다.\n\n파이 고객센터 드림", "안녕하세요, 파이 고객센터입니다.\n소중한 자녀의 자산 형성을 위해 파이를 선택해 주셔서 진심으로 감사드립니다.\n\n아쉽지만 신청하신 패키지가 실행되기 전(자녀계좌로 입금되기 전)에는 기존 설정 정보의 수정이 어렵습니다. 번거로우시더라도 기존 패키지를 취소하신 후, 새로 패키지를 신청하시면서 출금 계좌를 변경 부탁드립니다.\n\n특히 고객님께서는 6월 1일 출금 실행으로 신청해 두셨는데, 출금 실행 하루 전에는 시스템상 취소가 불가능합니다. 이점 참고하셔서 가급적 빠르게 아래 경로에 따라 패키지를 취소하신 후 재신청해 주시면 감사하겠습니다.\n\n[패키지 취소 및 인출계좌 변경 방법]\n1. 앱 홈 화면에서 '우리 아이 자산' 영역에 보이는 '신청 중인 증여+투자 패키지'를 누릅니다.\n2. 화면 우측 상단에 있는 '투자 취소' 버튼을 눌러 패키지를 취소합니다.\n3. 홈 화면에서 증여+투자 패키지를 다시 신청하면, 신청 과정에서 출금계좌 신규 추가 화면이 노출됩니다. 이때 변경하실 계좌를 새로 등록하시면 됩니다.\n\n계좌 변경 과정에서 잘 안되시거나 더 궁금한 점이 있으시면 언제든 편하게 문의해 주세요.\n감사합니다.\n\n파이 고객센터 드림", "안녕하세요, 파이 고객센터입니다.\n\n먼저 서비스 이용에 불편을 드려 죄송합니다.\n파이 서비스는 고객님의 정보를 안전하게 보호하기 위해 대법원 시스템을 통해 가족관계 정보를 검증하고 있습니다.\n정보 오류가 발생한 경우 아래 케이스에 해당하는지 확인을 부탁드립니다.\n\n1) 입력 정보가 맞는지 확인해주세요\n2) 가족 정보에 변동이 있는 경우 온라인 검증 제약으로 인해 비대면 계좌 개설이 제한됩니다. 대응할 수 있는 지원 프로세스를 최우선으로 검토 중에 있으니 양해 부탁드립니다.\n\n빠른 시일 내 개선을 통해 불편 없이 이용하실 수 있도록 하겠습니다.\n감사합니다.\n\n파이 고객센터 드림", "안녕하세요, 파이 고객센터입니다.\n\n고객님의 정보 확인 결과, 월 19만 4천 원 패키지로 신청하시고 홈택스 신고까지 완료해 주신 상태입니다. 아동수당을 활용하기 위해 패키지 정보나 홈택스 신고 내역을 수정하실 필요는 없습니다.\n\n아동수당 10만 원을 증여 자금으로 활용하시려면, 아동수당이 입금되는 계좌를 증여+투자 패키지의 출금 계좌로 변경해 주시면 됩니다. 이렇게 설정해두면 아동수당 10만 원이 자동으로 증여 자금에 합쳐져, 부모님 부담은 9만 4천 원으로 줄어듭니다.\n\n[설정 방법]\n1단계. 파이 앱에서 증여+투자 패키지에 설정된 '출금 계좌'의 은행명과 계좌번호를 확인해 주세요.\n2단계. 복지로 웹사이트에서 아동수당 입금 계좌를 변경합니다.\n- 복지로 홈페이지 접속 → <https://www.bokjiro.go.kr/>\n- 로그인 (간편로그인 가능)\n- 상단 메뉴 [서비스 신청] → [민원서비스 신청] → [복지급여계좌변경] 클릭\n- 아동수당(10만 원)의 수취 계좌를 1단계에서 확인한 계좌로 변경 신청\n※ 계좌 변경 반영 시점은 지자체에 따라 다를 수 있어, 계좌변경 신청 후 안내되는 적용일을 함께 확인하시는 것을 권장드립니다.\n\n[참고] \n아동수당 지급이 종료되는 시점부터는 부모님 계좌에서 아동수당이 포함되지 않은 19만 4천 원이 출금됩니다. 자녀를 위한 증여 계획 수립 시 참고해 주세요.\n\n혹시 저희가 고객님의 상황을 정확히 이해하지 못한 부분이 있거나, 위 안내 외에 추가로 궁금하신 점이 있으시면 언제든 편하게 문의해 주세요. 감사합니다.\n\n파이 고객센터 드림"]};
+
+function saveKey() {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if (!key) { document.getElementById('keyError').style.display='block'; return; }
+  sessionStorage.setItem('gemini_key', key);
+  document.getElementById('keyModal').style.display='none';
+}
+
+function resetKey() {
+  sessionStorage.removeItem('gemini_key');
+  document.getElementById('keyModal').style.display='flex';
+}
+
+// 이미 키 있으면 모달 숨김
+if (sessionStorage.getItem('gemini_key')) {
+  document.getElementById('keyModal').style.display='none';
+}
+
+document.getElementById('question').addEventListener('input', function() {
+  document.getElementById('charCount').textContent = this.value.length;
+});
+
+function getExamples(question) {
+  // 전체 카테고리에서 카테고리당 1개씩 골고루 추출 (총 6개)
+  const allExamples = [];
+  for (const cat of Object.keys(QA_DATA)) {
+    if (QA_DATA[cat].length > 0) allExamples.push(QA_DATA[cat][0]);
+  }
+  return allExamples;
+}
+
+function buildPrompt(question, examples) {
+  let exText = examples.map((a,i) => `[참고 답변 ${i+1}]\n${a}`).join('\n\n');
+  return `당신은 파이(Pi) 앱 고객센터 담당자입니다.
+고객 문의에 대해 정중하고 친절한 한국어 답변 초안을 작성해주세요.
+
+아래 참고 답변들의 말투와 형식을 그대로 따라주세요:
+- "안녕하세요, 파이 고객센터입니다."로 시작
+- [제목] 형식으로 섹션 구분 (필요한 경우)
+- 마지막은 "파이 고객센터 드림"으로 마무리
+- 구체적이고 단계별로 안내
+- 마크다운 굵게(**) 사용 금지
+
+고객 문의 내용: ${question}
+
+참고 답변 사례 (말투와 형식 참고용):
+${exText}
+
+위 참고 사례의 말투와 형식을 따라, 이 고객 문의에 맞는 새 답변을 작성해주세요.`;
+}
+
+async function generate() {
+  const question = document.getElementById('question').value.trim();
+  const apiKey = sessionStorage.getItem('gemini_key');
+  const errorEl = document.getElementById('errorMsg');
+
+  errorEl.style.display='none';
+  if (!question) { showError('문의 내용을 입력해주세요.'); return; }
+  if (!apiKey) { document.getElementById('keyModal').style.display='flex'; return; }
+
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>생성 중...';
+
+  try {
+    const examples = getExamples(question);
+    const prompt = buildPrompt(question, examples);
+
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          contents: [{parts: [{text: prompt}]}],
+          generationConfig: {temperature: 0.4, maxOutputTokens: 1024}
+        })
+      }
+    );
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error?.message || '오류');
+    }
+
+    const data = await res.json();
+    let answer = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    answer = answer.replace(/\*\*(.*?)\*\*/g, '$1').trim();
+
+    document.getElementById('answerBox').textContent = answer;
+
+    const rc = document.getElementById('resultCard');
+    rc.style.display = 'block';
+    rc.scrollIntoView({behavior:'smooth', block:'start'});
+
+  } catch(e) {
+    showError('오류: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '답변 초안 생성';
+  }
+}
+
+function copyAnswer() {
+  const text = document.getElementById('answerBox').textContent;
+  navigator.clipboard.writeText(text).then(() => showToast());
+}
+
+function showError(msg) {
+  const el = document.getElementById('errorMsg');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function showToast() {
+  const t = document.getElementById('toast');
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+</script>
+</body>
+</html>

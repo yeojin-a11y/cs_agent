@@ -1,0 +1,31 @@
+name = "pi-cs-agent"
+main = "index.js"
+compatibility_date = "2026-08-01"
+
+# Gemini API 는 일부 지역(홍콩 등)을 지원하지 않는다. 기본 배치에서 HKG 엣지가 잡혀
+# "User location is not supported" 400 이 발생했다. 백엔드 근처로 재배치를 시도한다.
+[placement]
+mode = "smart"
+
+[vars]
+ALLOWED_ORIGIN = "https://yeojin-a11y.github.io"
+RATE_LIMIT_PER_10MIN = "30"
+DAILY_GENERATE_LIMIT = "20"
+EMBED_MODEL = "gemini-embedding-2"
+GEN_MODEL = "gemini-3.6-flash"
+
+# 아래 id 는 `wrangler kv namespace create CACHE` 실행 후 출력값으로 교체할 것
+[[kv_namespaces]]
+binding = "KV"
+id = "c0fa2bbc894f49a8b4642a2e0d475477"
+
+# 키는 저장소에 넣지 않는다. 배포 후 아래 명령으로 주입:
+#   wrangler secret put GEMINI_API_KEY
+
+[[durable_objects.bindings]]
+name = "RELAY"
+class_name = "GeminiRelay"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["GeminiRelay"]

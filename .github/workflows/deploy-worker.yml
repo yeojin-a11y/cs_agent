@@ -1,0 +1,25 @@
+# Design Ref: §4.2 — 프롬프트 규칙을 Worker 로 옮긴 대가를 자동 배포로 상쇄한다.
+# 담당자가 GitHub 웹에서 worker/prompt.js 를 고치고 커밋하면 그대로 배포된다.
+name: Deploy Worker
+
+on:
+  push:
+    branches: [main]
+    paths: ['worker/**']
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: 문법 검사
+        run: node --check worker/index.js && node --check worker/prompt.js
+      - name: 배포
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: worker
