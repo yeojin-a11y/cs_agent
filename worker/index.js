@@ -148,7 +148,14 @@ async function handleGenerate(request, env, origin) {
 
   const r = await gemini(`${env.GEN_MODEL}:generateContent`, env, {
     contents: [{ parts: [{ text: buildPrompt({ question, contexts, confidence }) }] }],
-    generationConfig: { temperature: 0.4, maxOutputTokens: 2048 },
+    generationConfig: {
+      temperature: 0.4,
+      maxOutputTokens: 2048,
+      // §12.12 실측: 기본값은 답변 294토큰을 뽑으려고 내부 추론에 1,537토큰을 쓴다.
+      // 정형화된 CS 답변에는 불필요하며, 이 한 줄이 전체 39.4초 → 5.5초를 만든다.
+      // budget=0 은 API 가 거부하므로 256 이 실질적 최솟값이다.
+      thinkingConfig: { thinkingBudget: 256 },
+    },
   });
 
   if (!r.ok) {

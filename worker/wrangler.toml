@@ -2,10 +2,8 @@ name = "pi-cs-agent"
 main = "index.js"
 compatibility_date = "2026-08-01"
 
-# Gemini API 는 일부 지역(홍콩 등)을 지원하지 않는다. 기본 배치에서 HKG 엣지가 잡혀
-# "User location is not supported" 400 이 발생했다. 백엔드 근처로 재배치를 시도한다.
-[placement]
-mode = "smart"
+# Smart Placement 는 트래픽 학습 기반이라 효과가 없었고(§12.6), DO 릴레이와 겹쳐
+# 지연을 유발하는 것으로 의심되어 제거했다. 지역 문제는 DO locationHint 가 담당한다.
 
 [vars]
 ALLOWED_ORIGIN = "https://yeojin-a11y.github.io"
